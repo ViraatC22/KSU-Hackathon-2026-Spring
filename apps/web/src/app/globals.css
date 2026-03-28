@@ -1,0 +1,144 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap');
+
+@layer base {
+  :root {
+    --copper-300: #eda671;
+    --copper-400: #e47d3c;
+    --copper-500: #d4611e;
+    --copper-600: #b84a15;
+    --zambezi-400: #38b2a3;
+    --zambezi-500: #2d9e90;
+    --sand-950: #1a1714;
+
+    --background: 30 20% 98%;
+    --foreground: 25 15% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 25 15% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 15% 10%;
+    --primary: 22 75% 47%;
+    --primary-foreground: 30 20% 98%;
+    --secondary: 30 15% 93%;
+    --secondary-foreground: 25 15% 20%;
+    --muted: 30 12% 93%;
+    --muted-foreground: 30 8% 46%;
+    --accent: 177 53% 43%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 30 10% 88%;
+    --input: 30 10% 88%;
+    --ring: 22 75% 47%;
+    --radius: 0.625rem;
+    --chart-1: 22 75% 47%;
+    --chart-2: 177 53% 43%;
+    --chart-3: 142 55% 47%;
+    --chart-4: 38 85% 55%;
+    --chart-5: 0 70% 55%;
+  }
+
+  .dark {
+    --background: 20 12% 9%;
+    --foreground: 30 15% 93%;
+    --card: 20 10% 12%;
+    --card-foreground: 30 15% 93%;
+    --popover: 20 10% 13%;
+    --popover-foreground: 30 15% 93%;
+    --primary: 22 75% 55%;
+    --primary-foreground: 20 12% 9%;
+    --secondary: 20 8% 18%;
+    --secondary-foreground: 30 15% 93%;
+    --muted: 20 8% 17%;
+    --muted-foreground: 30 8% 58%;
+    --accent: 177 45% 38%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 55% 48%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 20 8% 22%;
+    --input: 20 8% 19%;
+    --ring: 22 75% 55%;
+    --chart-1: 22 75% 55%;
+    --chart-2: 177 53% 48%;
+    --chart-3: 142 55% 52%;
+    --chart-4: 38 85% 58%;
+    --chart-5: 0 70% 58%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  html { @apply dark; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', var(--font-geist-sans), system-ui, sans-serif;
+  }
+}
+
+.font-display { font-family: 'DM Serif Display', Georgia, serif; }
+
+.glow-copper { box-shadow: 0 0 20px rgba(212, 97, 30, 0.3); }
+.glow-teal   { box-shadow: 0 0 20px rgba(56, 178, 163, 0.3); }
+.glow-danger { box-shadow: 0 0 20px rgba(217, 69, 69, 0.4); }
+.text-copper  { color: var(--copper-400); }
+.text-zambezi { color: var(--zambezi-400); }
+
+.text-gradient-copper {
+  background: linear-gradient(135deg, var(--copper-300), var(--copper-500));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@keyframes fraud-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 69, 69, 0.7); }
+  50%       { box-shadow: 0 0 0 8px rgba(217, 69, 69, 0); }
+}
+.fraud-alert { animation: fraud-pulse 2s ease-in-out infinite; }
+
+@keyframes feed-enter {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.feed-item-enter { animation: feed-enter 0.3s ease-out; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
+
+.card-hover {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border-color: hsl(var(--primary) / 0.4);
+}
+
+.module-card { position: relative; overflow: hidden; }
+.module-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--copper-500), var(--zambezi-400));
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.module-card:hover::before { opacity: 1; }
+
+.logo-glow { box-shadow: 0 0 16px rgba(212, 97, 30, 0.5); }
+
+.stat-number {
+  font-family: var(--font-geist-mono), monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}

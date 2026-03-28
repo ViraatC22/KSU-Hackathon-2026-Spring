@@ -1,0 +1,335 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── USERS & IDENTITY ───────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  name            String
+  phone           String    @unique
+  email           String?   @unique
+  nrcNumber       String?   @unique
+  district        String
+  province        String
+  gender          String?
+  dateOfBirth     DateTime?
+  role            UserRole  @default(BORROWER)
+  kycStatus       KycStatus @default(PENDING)
+  kycConfidence   Float?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  mobileAccounts   MobileAccount[]
+  creditScore      CreditScore?
+  sentTransactions Transaction[]    @relation("sender")
+  receivedTransactions Transaction[] @relation("receiver")
+  loanApplications LoanApplication[]
+  circleMemberships CircleMembership[]
+  documents        Document[]
+  chatMessages     ChatMessage[]
+  financialRecords FinancialRecord[]
+}
+
+enum UserRole {
+  BORROWER
+  LENDER
+  ADMIN
+}
+
+enum KycStatus {
+  PENDING
+  VERIFIED
+  FAILED
+  MANUAL_REVIEW
+}
+
+model MobileAccount {
+  id          String         @id @default(cuid())
+  userId      String
+  platform    MobilePlatform
+  platformId  String         @unique
+  isActive    Boolean        @default(true)
+  linkedAt    DateTime       @default(now())
+
+  user        User           @relation(fields: [userId], references: [id])
+}
+
+enum MobilePlatform {
+  MTN_MONEY
+  AIRTEL_MONEY
+  ZOONA
+}
+
+// ─── MODULE 2: TRANSACTIONS & RECONCILIATION ────────
+
+model Transaction {
+  id                   String               @id @default(cuid())
+  ndalamaId            String               @unique
+  originalPlatform     MobilePlatform
+  originalTxId         String
+  senderId             String
+  receiverId           String
+  amount               Decimal              @db.Decimal(12, 2)
+  currency             String               @default("ZMW")
+  type                 TxType
+  category             String?
+  timestamp            DateTime
+  fraudScore           Float                @default(0)
+  fraudFlags           String[]
+  reconciliationStatus ReconciliationStatus @default(PENDING)
+  createdAt            DateTime             @default(now())
+
+  sender               User                 @relation("sender", fields: [senderId], references: [id])
+  receiver             User                 @relation("receiver", fields: [receiverId], references: [id])
+}
+
+enum TxType {
+  P2P_TRANSFER
+  MERCHANT_PAYMENT
+  BILL_PAYMENT
+  AIRTIME_PURCHASE
+  CASH_IN
+  CASH_OUT
+  SALARY
+  LOAN_DISBURSEMENT
+  LOAN_REPAYMENT
+  SAVINGS_CONTRIBUTION
+  SAVINGS_PAYOUT
+}
+
+enum ReconciliationStatus {
+  PENDING
+  MATCHED
+  DISCREPANCY
+  FLAGGED
+}
+
+// ─── MODULE 1: CREDIT SCORING ───────────────────────
+
+model CreditScore {
+  id               String     @id @default(cuid())
+  userId           String     @unique
+  score            Int
+  tier             CreditTier
+  transactionScore Float
+  behavioralScore  Float
+  businessScore    Float?
+  identityScore    Float
+  factors          Json
+  fairnessFlags    String[]
+  calculatedAt     DateTime   @default(now())
+  expiresAt        DateTime
+
+  user             User       @relation(fields: [userId], references: [id])
+}
+
+enum CreditTier {
+  A
+  B
+  C
+  D
+  E
+}
+
+// ─── MODULE 4: LENDING MARKETPLACE ──────────────────
+
+model LoanApplication {
+  id            String     @id @default(cuid())
+  borrowerId    String
+  amount        Decimal    @db.Decimal(12, 2)
+  purpose       String
+  term          Int
+  status        LoanStatus @default(OPEN)
+  creditScoreAt Int
+  createdAt     DateTime   @default(now())
+
+  borrower      User         @relation(fields: [borrowerId], references: [id])
+  offers        LoanOffer[]
+}
+
+enum LoanStatus {
+  OPEN
+  FUNDED
+  REPAYING
+  COMPLETED
+  DEFAULTED
+}
+
+model LoanOffer {
+  id            String      @id @default(cuid())
+  applicationId String
+  lenderId      String
+  interestRate  Float
+  rateBreakdown Json
+  maxAmount     Decimal     @db.Decimal(12, 2)
+  status        OfferStatus @default(PENDING)
+  isAccepted    Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+
+  application   LoanApplication @relation(fields: [applicationId], references: [id])
+}
+
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+// ─── MODULE 6: CHILIMBA SAVINGS CIRCLES ─────────────
+
+model SavingsCircle {
+  id                 String       @id @default(cuid())
+  name               String
+  contributionAmount Decimal      @db.Decimal(12, 2)
+  currency           String       @default("ZMW")
+  frequency          Frequency
+  totalRounds        Int
+  currentRound       Int          @default(1)
+  healthScore        Float        @default(1.0)
+  status             CircleStatus @default(ACTIVE)
+  createdAt          DateTime     @default(now())
+
+  members            CircleMembership[]
+  payouts            CirclePayout[]
+}
+
+model CircleMembership {
+  id               String     @id @default(cuid())
+  circleId         String
+  userId           String
+  role             CircleRole @default(MEMBER)
+  reliabilityScore Float      @default(0.5)
+  defaultRisk      Float      @default(0.2)
+  joinedAt         DateTime   @default(now())
+
+  circle           SavingsCircle @relation(fields: [circleId], references: [id])
+  user             User          @relation(fields: [userId], references: [id])
+
+  @@unique([circleId, userId])
+}
+
+model CirclePayout {
+  id          String       @id @default(cuid())
+  circleId    String
+  round       Int
+  recipientId String
+  amount      Decimal      @db.Decimal(12, 2)
+  paidAt      DateTime?
+  status      PayoutStatus @default(SCHEDULED)
+
+  circle      SavingsCircle @relation(fields: [circleId], references: [id])
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum CircleStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  DISSOLVED
+}
+
+enum CircleRole {
+  LEADER
+  MEMBER
+}
+
+enum PayoutStatus {
+  SCHEDULED
+  PAID
+  MISSED
+}
+
+// ─── MODULE 7: DOCUMENT PROCESSING ──────────────────
+
+model Document {
+  id                 String          @id @default(cuid())
+  userId             String
+  type               DocType
+  fileUrl            String
+  extractedData      Json?
+  confidence         Float?
+  fieldConfidences   Json?
+  verificationStatus DocVerification @default(PROCESSING)
+  processingErrors   String[]
+  uploadedAt         DateTime        @default(now())
+  processedAt        DateTime?
+
+  user               User            @relation(fields: [userId], references: [id])
+}
+
+enum DocType {
+  NRC
+  BUSINESS_PERMIT
+  RECEIPT
+  BANK_STATEMENT
+  UTILITY_BILL
+  OTHER
+}
+
+enum DocVerification {
+  PROCESSING
+  VERIFIED
+  REJECTED
+  MANUAL_REVIEW
+}
+
+// ─── MODULE 3: CHATBOT RECORDS ──────────────────────
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String
+  content   String
+  intent    String?
+  entities  Json?
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model FinancialRecord {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String
+  category    String
+  amount      Decimal  @db.Decimal(12, 2)
+  currency    String   @default("ZMW")
+  description String?
+  date        DateTime
+  source      String   @default("chatbot")
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+// ─── MODULE 5: GEOSPATIAL DATA ──────────────────────
+
+model DistrictMetrics {
+  id                     String   @id @default(cuid())
+  districtName           String   @unique
+  province               String
+  latitude               Float
+  longitude              Float
+  population             Int
+  mobileMoneyPenetration Float
+  agentDensity           Float
+  txVolumePerCapita      Float
+  creditAccessRate       Float
+  savingsParticipation   Float
+  internetConnectivity   Float
+  inclusionScore         Float
+  aiRecommendation       String?
+  updatedAt              DateTime @updatedAt
+}
