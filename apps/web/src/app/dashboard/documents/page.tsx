@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import {
   FileText, Upload, CheckCircle, Clock, AlertTriangle, Eye, XCircle,
-  Scan, Brain, Zap, ChevronRight,
+  Scan, Brain, Zap, ChevronRight, Loader2,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -39,6 +39,15 @@ interface MockDocument {
   uploadedAt: Date;
   docNote: string;
   extractedFields: ExtractedField[];
+}
+
+interface OcrUploadResult {
+  status: "completed";
+  doc_type: string;
+  confidence: number;
+  extracted_fields: Array<{ field: string; value: string; confidence: number }>;
+  text_preview: string;
+  text_truncated: boolean;
 }
 
 const MOCK_DOCUMENTS: MockDocument[] = [
@@ -142,6 +151,11 @@ const CHART_STYLE = {
 export default function DocumentsPage() {
   const [selectedDoc, setSelectedDoc] = useState<string>("DOC-001");
   const [hoveredBox, setHoveredBox] = useState<string | null>(null);
+  const [docType, setDocType] = useState("NRC");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadResult, setUploadResult] = useState<OcrUploadResult | null>(null);
   const selected = MOCK_DOCUMENTS.find((d) => d.id === selectedDoc)!;
 
   const verified = MOCK_DOCUMENTS.filter((d) => d.status === "VERIFIED").length;
@@ -165,18 +179,42 @@ export default function DocumentsPage() {
     ? (selected.extractedFields.reduce((s, f) => s + (f.claudeConf - f.tesseractConf), 0) / selected.extractedFields.length * 100).toFixed(1)
     : "0";
 
+  async function processDocument() {
+    if (!selectedFile || uploading) return;
+
+    setUploading(true);
+    setUploadError(null);
+    setUploadResult(null);
+    const form = new FormData();
+    form.set("file", selectedFile);
+    form.set("doc_type", docType);
+
+    try {
+      const response = await fetch("/api/documents", { method: "POST", body: form });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || payload.detail || "Document processing failed");
+      }
+      setUploadResult(payload as OcrUploadResult);
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "Document processing failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight font-display">AI Document Intelligence</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Module 7: Dual-engine OCR · Tesseract + Claude Vision · KYC verification & loan documents
+            Module 7: Local Tesseract OCR upload · Synthetic extraction-quality showcase
           </p>
         </div>
         <Badge variant="outline" className="gap-1.5 text-blue-400 border-blue-800">
           <Brain className="h-3 w-3" />
-          Claude Vision
+          Hackathon Demo
         </Badge>
       </div>
 
@@ -194,13 +232,15 @@ export default function DocumentsPage() {
             <Upload className="h-4 w-4" style={{ color: "var(--copper-400)" }} />
             Upload Document
           </CardTitle>
-          <CardDescription className="text-xs">NRC, business permit, receipt, or utility bill — processed through dual OCR pipeline</CardDescription>
+          <CardDescription className="text-xs">
+            Process a JPEG, PNG, TIFF, or WebP locally with Tesseract. Uploaded images are not persisted.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4 items-end">
             <div className="flex-1 min-w-[180px] space-y-1.5">
               <Label className="text-xs">Document Type</Label>
-              <Select defaultValue="NRC">
+              <Select value={docType} onValueChange={setDocType}>
                 <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="NRC">National Registration Card</SelectItem>
@@ -213,13 +253,56 @@ export default function DocumentsPage() {
             </div>
             <div className="flex-1 min-w-[200px] space-y-1.5">
               <Label className="text-xs">File</Label>
-              <Input type="file" accept="image/*,.pdf" className="h-8 text-xs" />
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/tiff,image/webp"
+                className="h-8 text-xs"
+                onChange={(event) => {
+                  setSelectedFile(event.target.files?.[0] ?? null);
+                  setUploadError(null);
+                  setUploadResult(null);
+                }}
+              />
             </div>
-            <Button className="h-8 gap-2 text-xs"
+            <Button
+              className="h-8 gap-2 text-xs"
+              disabled={!selectedFile || uploading}
+              onClick={processDocument}
               style={{ background: "linear-gradient(135deg, var(--copper-500), var(--copper-700))" }}>
-              <Upload className="h-3.5 w-3.5" /> Process Document
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              {uploading ? "Processing…" : "Process Document"}
             </Button>
           </div>
+          {uploadError && (
+            <p role="alert" className="mt-3 text-xs text-red-400">{uploadError}</p>
+          )}
+          {uploadResult && (
+            <div className="mt-4 rounded-md border border-emerald-900/70 bg-emerald-950/20 p-3 text-xs">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <CheckCircle className="h-3.5 w-3.5" />
+                OCR complete · {(uploadResult.confidence * 100).toFixed(0)}% mean confidence
+              </div>
+              {uploadResult.extracted_fields.length > 0 ? (
+                <dl className="mt-2 grid gap-1 sm:grid-cols-2">
+                  {uploadResult.extracted_fields.map((field) => (
+                    <div key={field.field}>
+                      <dt className="text-muted-foreground">{field.field}</dt>
+                      <dd className="font-mono">{field.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="mt-2 text-muted-foreground">
+                  Text was processed, but no known {uploadResult.doc_type.replaceAll("_", " ").toLowerCase()} fields were recognized.
+                </p>
+              )}
+              {uploadResult.text_preview && (
+                <p className="mt-2 break-words text-muted-foreground">
+                  Preview: {uploadResult.text_preview}{uploadResult.text_truncated ? "…" : ""}
+                </p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
