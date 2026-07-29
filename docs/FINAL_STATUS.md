@@ -64,6 +64,7 @@ An interactive browser backend was unavailable in this Codex environment, so no 
 ## Git and GitHub
 
 - Repository: `https://github.com/ViraatC22/KSU-Hackathon-2026-Spring.git`
+- Visibility: `PUBLIC` (pre-existing; recovery did not change repository access)
 - Final branch: `main`
 - Web recovery commit: `7dd4c88d35a73cb5fcd0d6ace8be3db025b03064`
 - OCR completion commit: `4bd0087adda64399d321b656d4b15ee9dcbdc4ff`
