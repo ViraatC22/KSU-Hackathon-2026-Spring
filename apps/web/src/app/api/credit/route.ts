@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { generateUsers, generateTransactions, computeCreditScore } from "@/lib/utils/synthetic";
+import { creditQuerySchema, validationIssues } from "@/lib/validation";
 
 const USERS = generateUsers(500);
 const TRANSACTIONS = generateTransactions(500, 50000);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const userId = searchParams.get("userId");
+  const parsed = creditQuerySchema.safeParse(Object.fromEntries(searchParams));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid credit query", issues: validationIssues(parsed.error) },
+      { status: 400 }
+    );
+  }
+  const { userId } = parsed.data;
 
   const scores = USERS.map((user, idx) => {
     const userTxns = TRANSACTIONS.filter((t) => t.senderIndex === idx || t.receiverIndex === idx);
@@ -24,9 +32,8 @@ export async function GET(request: Request) {
     return { userId: idx, name: user.name, district: user.district, ...score };
   });
 
-  if (userId) {
-    const idx = parseInt(userId);
-    const found = scores[idx];
+  if (userId !== undefined) {
+    const found = scores[userId];
     return found ? NextResponse.json(found) : NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 

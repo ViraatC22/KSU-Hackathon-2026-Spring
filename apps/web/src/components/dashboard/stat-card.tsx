@@ -5,47 +5,49 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
+function parseCountTarget(target: number | string) {
+  if (typeof target === "number") {
+    return { number: target, prefix: "", suffix: "", decimals: 0, grouped: true };
+  }
+  const match = target.match(/^([^0-9]*)([0-9,.]+)(.*)$/);
+  if (!match) return null;
+  const [, prefix, numberText, suffix] = match;
+  const number = Number.parseFloat(numberText.replace(/,/g, ""));
+  if (!Number.isFinite(number)) return null;
+  return {
+    number,
+    prefix,
+    suffix,
+    decimals: numberText.includes(".") ? numberText.split(".")[1].length : 0,
+    grouped: numberText.includes(","),
+  };
+}
+
 function useCountUp(target: number | string, duration = 1400): string {
   const [display, setDisplay] = useState("0");
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    if (typeof target === "string") {
-      // If it's a string like "K2.4M" or "94.2%" animate the numeric portion
-      const match = target.match(/^([^0-9]*)([0-9,.]+)(.*)$/);
-      if (!match) { setDisplay(target); return; }
-      const [, prefix, numStr, suffix] = match;
-      const num = parseFloat(numStr.replace(/,/g, ""));
-      if (isNaN(num)) { setDisplay(target); return; }
-      const start = performance.now();
-      const animate = (now: number) => {
-        const progress = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        const current = num * eased;
-        const formatted = numStr.includes(",")
-          ? Math.round(current).toLocaleString()
-          : numStr.includes(".")
-          ? current.toFixed(numStr.split(".")[1].length)
+    const parsed = parseCountTarget(target);
+    if (!parsed) return;
+    const start = performance.now();
+    const animate = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = parsed.number * eased;
+      const formatted = parsed.grouped
+        ? Math.round(current).toLocaleString()
+        : parsed.decimals > 0
+          ? current.toFixed(parsed.decimals)
           : Math.round(current).toString();
-        setDisplay(`${prefix}${formatted}${suffix}`);
-        if (progress < 1) rafRef.current = requestAnimationFrame(animate);
-      };
-      rafRef.current = requestAnimationFrame(animate);
-      return () => cancelAnimationFrame(rafRef.current);
-    } else {
-      const start = performance.now();
-      const animate = (now: number) => {
-        const progress = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        setDisplay(Math.round(target * eased).toLocaleString());
-        if (progress < 1) rafRef.current = requestAnimationFrame(animate);
-      };
-      rafRef.current = requestAnimationFrame(animate);
-      return () => cancelAnimationFrame(rafRef.current);
-    }
+      setDisplay(`${parsed.prefix}${formatted}${parsed.suffix}`);
+      if (progress < 1) rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafRef.current);
   }, [target, duration]);
 
-  return display;
+  return parseCountTarget(target) ? display : String(target);
 }
 
 interface StatCardProps {

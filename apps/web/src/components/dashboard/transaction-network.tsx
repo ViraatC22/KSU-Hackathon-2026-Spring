@@ -46,6 +46,61 @@ interface Props {
   highlightFraud?: boolean;
 }
 
+function updatePhysics(
+  nodes: TxNode[],
+  edges: TxEdge[],
+  alpha: number,
+  width: number,
+  height: number
+) {
+  if (alpha <= 0.005) return alpha;
+
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const dx = nodes[j].x - nodes[i].x;
+      const dy = nodes[j].y - nodes[i].y;
+      const distanceSquared = dx * dx + dy * dy || 0.01;
+      const distance = Math.sqrt(distanceSquared);
+      const minimumDistance = (nodes[i].radius + nodes[j].radius + 18) * 3;
+      if (distance < minimumDistance) {
+        const force = (alpha * minimumDistance * minimumDistance * 0.45) / distanceSquared;
+        const forceX = (dx / distance) * force;
+        const forceY = (dy / distance) * force;
+        nodes[i].vx -= forceX;
+        nodes[i].vy -= forceY;
+        nodes[j].vx += forceX;
+        nodes[j].vy += forceY;
+      }
+    }
+  }
+
+  for (const edge of edges) {
+    const source = nodes[edge.si];
+    const target = nodes[edge.ti];
+    if (!source || !target || source === target) continue;
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+    const targetDistance = edge.fraudScore > 0.5 ? 80 : 120;
+    const force = alpha * 0.035 * (distance - targetDistance);
+    source.vx += (dx / distance) * force;
+    source.vy += (dy / distance) * force;
+    target.vx -= (dx / distance) * force;
+    target.vy -= (dy / distance) * force;
+  }
+
+  for (const node of nodes) {
+    node.vx += (width / 2 - node.x) * 0.007 * alpha;
+    node.vy += (height / 2 - node.y) * 0.007 * alpha;
+    node.vx *= 0.78;
+    node.vy *= 0.78;
+    node.x = Math.max(node.radius + 6, Math.min(width - node.radius - 6, node.x + node.vx));
+    node.y = Math.max(node.radius + 6, Math.min(height - node.radius - 6, node.y + node.vy));
+  }
+
+  return alpha * 0.991;
+}
+
 export function TransactionNetwork({ users, transactions, highlightFraud = false }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
@@ -135,56 +190,7 @@ export function TransactionNetwork({ users, transactions, highlightFraud = false
     const edges = edgesRef.current;
     const alpha = alphaRef.current;
 
-    // Physics
-    if (alpha > 0.005) {
-      // Repulsion (only nearby nodes for perf)
-      for (let i = 0; i < nodes.length; i++) {
-        for (let j = i + 1; j < nodes.length; j++) {
-          const dx = nodes[j].x - nodes[i].x;
-          const dy = nodes[j].y - nodes[i].y;
-          const dist2 = dx * dx + dy * dy || 0.01;
-          const dist = Math.sqrt(dist2);
-          const minD = (nodes[i].radius + nodes[j].radius + 18) * 3;
-          if (dist < minD) {
-            const force = (alpha * minD * minD * 0.45) / dist2;
-            const fx = (dx / dist) * force;
-            const fy = (dy / dist) * force;
-            nodes[i].vx -= fx;
-            nodes[i].vy -= fy;
-            nodes[j].vx += fx;
-            nodes[j].vy += fy;
-          }
-        }
-      }
-
-      // Spring forces on edges
-      for (const edge of edges) {
-        const s = nodes[edge.si];
-        const t = nodes[edge.ti];
-        if (!s || !t || s === t) continue;
-        const dx = t.x - s.x;
-        const dy = t.y - s.y;
-        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const targetDist = edge.fraudScore > 0.5 ? 80 : 120;
-        const stretch = dist - targetDist;
-        const force = alpha * 0.035 * stretch;
-        s.vx += (dx / dist) * force;
-        s.vy += (dy / dist) * force;
-        t.vx -= (dx / dist) * force;
-        t.vy -= (dy / dist) * force;
-      }
-
-      // Center gravity + integrate
-      for (const node of nodes) {
-        node.vx += (W / 2 - node.x) * 0.007 * alpha;
-        node.vy += (H / 2 - node.y) * 0.007 * alpha;
-        node.vx *= 0.78;
-        node.vy *= 0.78;
-        node.x = Math.max(node.radius + 6, Math.min(W - node.radius - 6, node.x + node.vx));
-        node.y = Math.max(node.radius + 6, Math.min(H - node.radius - 6, node.y + node.vy));
-      }
-      alphaRef.current *= 0.991;
-    }
+    alphaRef.current = updatePhysics(nodes, edges, alpha, W, H);
 
     // ---- Draw ----
     ctx.clearRect(0, 0, W, H);
@@ -275,14 +281,21 @@ export function TransactionNetwork({ users, transactions, highlightFraud = false
     ctx.fillStyle = "rgba(255,255,255,0.65)";
     ctx.fillText("Fraud edge", 44, ely + 4);
 
-    animRef.current = requestAnimationFrame(tick);
   }, []); // stable — only accesses refs
 
   // Start animation loop
   useEffect(() => {
     if (!ready) return;
-    animRef.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(animRef.current);
+    let active = true;
+    const frame = () => {
+      tick();
+      if (active) animRef.current = requestAnimationFrame(frame);
+    };
+    animRef.current = requestAnimationFrame(frame);
+    return () => {
+      active = false;
+      cancelAnimationFrame(animRef.current);
+    };
   }, [tick, ready]);
 
   // Handle canvas resize

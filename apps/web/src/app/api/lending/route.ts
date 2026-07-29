@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { loanApplicationSchema, validationIssues } from "@/lib/validation";
 
 const LOAN_APPLICATIONS = [
   { id: "LOAN-001", borrower: "Mwila Tembo", district: "Lusaka", amount: 5000, purpose: "Inventory expansion", term: 6, status: "FUNDED", creditScore: 720, offers: 3, bestRate: 9.2 },
@@ -23,12 +24,15 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { amount, purpose, term } = body;
-
-  if (!amount || !purpose || !term) {
-    return NextResponse.json({ error: "amount, purpose, and term are required" }, { status: 400 });
+  const body = await request.json().catch(() => null);
+  const parsed = loanApplicationSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid loan application", issues: validationIssues(parsed.error) },
+      { status: 400 }
+    );
   }
+  const { amount, purpose, term } = parsed.data;
 
   // Simulate rate calculation
   const baseRate = 10;
@@ -42,6 +46,7 @@ export async function POST(request: Request) {
     term,
     status: "OPEN",
     estimatedRate: finalRate,
-    message: `Application submitted. Estimated rate: ${finalRate}%. Lenders will begin reviewing shortly.`,
+    persisted: false,
+    message: `Demo application calculated at an estimated ${finalRate}% rate. It was not persisted and no lender was notified.`,
   });
 }

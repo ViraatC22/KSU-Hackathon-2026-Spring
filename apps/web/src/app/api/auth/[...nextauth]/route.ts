@@ -8,11 +8,20 @@ const handler = NextAuth({
       name: "Phone + OTP",
       credentials: {
         phone: { label: "Phone Number", type: "text", placeholder: "+260971234567" },
-        otp: { label: "OTP", type: "text", placeholder: "1234" },
+        otp: { label: "OTP", type: "password", placeholder: "One-time code" },
       },
       async authorize(credentials) {
-        // Demo mode: accept OTP "1234" for any seeded user
-        if (credentials?.otp !== "1234") return null;
+        const demoOtp = process.env.DEMO_OTP;
+        const demoAuthEnabled = process.env.ENABLE_DEMO_AUTH === "true";
+
+        // Credentials auth is an explicit local-demo boundary. Production OTP
+        // delivery and verification are outside this repository's implemented scope.
+        if (
+          !demoAuthEnabled ||
+          !demoOtp ||
+          !credentials?.phone ||
+          credentials.otp !== demoOtp
+        ) return null;
 
         const user = await prisma.user.findUnique({
           where: { phone: credentials.phone },
@@ -42,9 +51,6 @@ const handler = NextAuth({
       }
       return session;
     },
-  },
-  pages: {
-    signIn: "/login",
   },
   session: {
     strategy: "jwt",

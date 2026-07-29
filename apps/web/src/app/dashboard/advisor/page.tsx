@@ -26,7 +26,7 @@ interface Message {
 const INITIAL_MESSAGES: Message[] = [
   {
     id: 1, role: "assistant", intent: "greeting",
-    content: "Mwibukisheni! Welcome to Ndalama AI — I'm your personal financial advisor.\n\nI can help you:\n• Record sales and expenses (just tell me naturally)\n• Check your credit score and how to improve it\n• Find loan offers based on your profile\n• Track your Chilimba savings circle\n• Forecast your cash flow\n\nHow can I help today?",
+    content: "Mwibukisheni! Welcome to the Ndalama AI demo.\n\nI can help you:\n• Preview sales and expenses (demo responses are not saved)\n• Check the synthetic credit score and its factors\n• Explore sample loan offers\n• Review the sample Chilimba circle\n• Preview a cash-flow forecast\n\nHow can I help today?",
     timestamp: new Date(Date.now() - 60000),
   },
 ];
@@ -37,7 +37,7 @@ const QUICK_ACTIONS = [
   { label: "Credit score", prompt: "What's my credit score and how can I improve it?" },
   { label: "Loan options", prompt: "I need K5,000 for a chest freezer. Can I get a loan?" },
   { label: "Cash flow forecast", prompt: "Generate my 30-day cash flow forecast" },
-  { label: "Record expense", prompt: "I paid K200 for transport to the market" },
+  { label: "Preview expense", prompt: "I paid K200 for transport to the market" },
   { label: "Savings circle", prompt: "What's the status of my Chilimba circle?" },
 ];
 
@@ -150,12 +150,12 @@ export default function AdvisorPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight font-display">AI Financial Advisor</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Module 3: Claude AI with tool use · Natural language · English, Bemba, Nyanja
+            Module 3 demo: Anthropic tool use when configured · deterministic local fallback otherwise
           </p>
         </div>
         <Badge variant="outline" className="gap-1.5 text-emerald-400 border-emerald-800">
           <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          Claude claude-sonnet-4-6
+          AI + Local Fallback
         </Badge>
       </div>
 
@@ -176,7 +176,7 @@ export default function AdvisorPage() {
               </div>
               <div>
                 <CardTitle className="text-base">Ndalama AI Advisor</CardTitle>
-                <CardDescription className="text-xs">Powered by Claude · Tool use enabled</CardDescription>
+                <CardDescription className="text-xs">Anthropic when configured · local fallback otherwise</CardDescription>
               </div>
               <MessageSquare className="ml-auto h-4 w-4 text-muted-foreground" />
             </div>

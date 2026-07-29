@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { chilimbaSchema, validationIssues } from "@/lib/validation";
 
 const CIRCLES = [
   {
@@ -33,23 +34,27 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { name, contribution, frequency, members } = body;
-
-  if (!name || !contribution || !frequency) {
-    return NextResponse.json({ error: "name, contribution, and frequency are required" }, { status: 400 });
+  const body = await request.json().catch(() => null);
+  const parsed = chilimbaSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid savings circle", issues: validationIssues(parsed.error) },
+      { status: 400 }
+    );
   }
+  const { name, contribution, frequency, members } = parsed.data;
 
   return NextResponse.json({
     id: `CHI-${String(Date.now()).slice(-6)}`,
     name,
     contribution,
     frequency,
-    members: members || 0,
-    totalRounds: members || 10,
+    members,
+    totalRounds: members,
     currentRound: 1,
     healthScore: 1.0,
     status: "ACTIVE",
-    message: "Savings circle created successfully!",
+    persisted: false,
+    message: "Demo savings circle calculated successfully. This preview is not persisted.",
   });
 }

@@ -6,7 +6,8 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient() {
-  const connectionString = process.env.DATABASE_URL!;
+  const connectionString =
+    process.env.DATABASE_URL ?? "postgresql://ndalama:ndalama@localhost:5432/ndalama";
 
   // For prisma+postgres:// URLs (Prisma dev server), use accelerateUrl
   if (connectionString.startsWith("prisma+postgres://")) {

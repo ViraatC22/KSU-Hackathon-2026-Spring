@@ -50,6 +50,18 @@ const CHART_STYLE = {
   fontSize: "11px",
 };
 
+const MONTHLY_VOLUME = (() => {
+  const months: Record<string, number> = {};
+  TRANSACTIONS.forEach((tx) => {
+    const key = `${tx.timestamp.getFullYear()}-${String(tx.timestamp.getMonth() + 1).padStart(2, "0")}`;
+    months[key] = (months[key] || 0) + tx.amount;
+  });
+  return Object.entries(months)
+    .sort()
+    .slice(-6)
+    .map(([month, volume]) => ({ month: month.slice(5), volume: Math.round(volume) }));
+})();
+
 export default function TransactionsPage() {
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState("all");
@@ -106,18 +118,6 @@ export default function TransactionsPage() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 7)
     .map(([name, value]) => ({ name: TX_TYPES[name as keyof typeof TX_TYPES] || name, value }));
-
-  const monthlyVolume = useMemo(() => {
-    const months: Record<string, number> = {};
-    TRANSACTIONS.forEach((tx) => {
-      const key = `${tx.timestamp.getFullYear()}-${String(tx.timestamp.getMonth() + 1).padStart(2, "0")}`;
-      months[key] = (months[key] || 0) + tx.amount;
-    });
-    return Object.entries(months)
-      .sort()
-      .slice(-6)
-      .map(([month, volume]) => ({ month: month.slice(5), volume: Math.round(volume) }));
-  }, []);
 
   return (
     <div className="space-y-6">
@@ -404,7 +404,7 @@ export default function TransactionsPage() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={280}>
-                  <LineChart data={monthlyVolume} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+                  <LineChart data={MONTHLY_VOLUME} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(20 8% 20%)" />
                     <XAxis dataKey="month" tick={{ fontSize: 11, fill: "hsl(30 8% 55%)" }} />
                     <YAxis tick={{ fontSize: 11, fill: "hsl(30 8% 55%)" }} tickFormatter={(v) => `K${(v / 1000).toFixed(0)}k`} />

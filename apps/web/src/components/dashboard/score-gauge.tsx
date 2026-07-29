@@ -36,11 +36,7 @@ export function ScoreGauge({ score, maxScore = 1000, size = 240, animate = true 
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    if (!animate) {
-      setDisplayScore(score);
-      setProgress(score / maxScore);
-      return;
-    }
+    if (!animate) return;
     const duration = 1800;
     const start = performance.now();
     const animate_ = (now: number) => {
@@ -53,6 +49,9 @@ export function ScoreGauge({ score, maxScore = 1000, size = 240, animate = true 
     rafRef.current = requestAnimationFrame(animate_);
     return () => cancelAnimationFrame(rafRef.current);
   }, [score, maxScore, animate]);
+
+  const visibleScore = animate ? displayScore : score;
+  const visibleProgress = animate ? progress : score / maxScore;
 
   const cx = size / 2;
   const cy = size / 2 + 10;
@@ -80,10 +79,10 @@ export function ScoreGauge({ score, maxScore = 1000, size = 240, animate = true 
   }
 
   const trackPath = describeArc(startAngle, endAngle, radius);
-  const fillEndAngle = startAngle + totalAngle * progress;
-  const fillPath = progress > 0.001 ? describeArc(startAngle, Math.min(fillEndAngle, endAngle - 0.01), radius) : "";
+  const fillEndAngle = startAngle + totalAngle * visibleProgress;
+  const fillPath = visibleProgress > 0.001 ? describeArc(startAngle, Math.min(fillEndAngle, endAngle - 0.01), radius) : "";
 
-  const color = scoreToColor(displayScore);
+  const color = scoreToColor(visibleScore);
   const tier = scoreTier(score);
   const label = tierLabel(tier);
 
@@ -166,7 +165,7 @@ export function ScoreGauge({ score, maxScore = 1000, size = 240, animate = true 
           fontSize="42" fontWeight="700" fill={color}
           fontFamily="var(--font-geist-mono), monospace"
           style={{ letterSpacing: "-2px", transition: "fill 0.5s ease" }}>
-          {displayScore}
+          {visibleScore}
         </text>
         <text x={cx} y={cy + 22} textAnchor="middle" dominantBaseline="middle"
           fontSize="11" fill="hsl(30 8% 55%)" fontFamily="system-ui">

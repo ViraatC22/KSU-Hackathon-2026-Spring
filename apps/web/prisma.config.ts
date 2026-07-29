@@ -7,6 +7,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"]!,
+    // Prisma loads this file during client generation, which should not require
+    // access to a real database. Runtime and migration commands can override it.
+    url: process.env["DATABASE_URL"] ?? "postgresql://ndalama:ndalama@localhost:5432/ndalama",
   },
 });

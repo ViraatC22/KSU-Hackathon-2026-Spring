@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import { generateUsers, generateTransactions } from "@/lib/utils/synthetic";
+import { transactionQuerySchema, validationIssues } from "@/lib/validation";
 
 const USERS = generateUsers(500);
 const TRANSACTIONS = generateTransactions(500, 50000);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const platform = searchParams.get("platform");
-  const type = searchParams.get("type");
-  const status = searchParams.get("status");
-  const page = parseInt(searchParams.get("page") || "0");
-  const limit = parseInt(searchParams.get("limit") || "25");
+  const parsed = transactionQuerySchema.safeParse(Object.fromEntries(searchParams));
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid transaction query", issues: validationIssues(parsed.error) },
+      { status: 400 }
+    );
+  }
+  const { platform, type, status, page, limit } = parsed.data;
 
   let filtered = TRANSACTIONS;
 

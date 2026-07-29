@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { chatRequestSchema, validationIssues } from "@/lib/validation";
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || "",
@@ -112,8 +113,9 @@ function executeTool(name: string, input: Record<string, unknown>): string {
       const qtyStr = quantity ? ` (${quantity}${unit ? " " + unit : ""})` : "";
       return JSON.stringify({
         success: true,
+        persisted: false,
         recorded: { type, category, amount, quantity, unit },
-        confirmation: `Recorded: K${amount} ${type} — ${catLabel}${qtyStr}`,
+        confirmation: `Demo preview: K${amount} ${type} — ${catLabel}${qtyStr}. This is not persisted.`,
         running_monthly_total: runningTotal,
         insight: type === "revenue"
           ? `Monthly ${type} now K${runningTotal.toLocaleString()}. At this rate, projected month-end: K${Math.round(runningTotal * 30 / new Date().getDate()).toLocaleString()}.`
@@ -235,30 +237,36 @@ LANGUAGE: Respond in whatever language the user writes in. Support English, Bemb
 
 NUMBERS: Always use K prefix for kwacha amounts. Use commas for thousands (K1,200 not K1200). Be specific — "K5,250 profit" not "good profit".
 
+DEMO BOUNDARY: Transaction tool responses are previews and are not persisted. Always state that clearly; never imply the user's real books or budget changed.
+
 TOOL USE: Use tools immediately when the user mentions a transaction, asks about money, or requests information. Don't ask for more info than needed — make reasonable assumptions and confirm.`;
 
 export async function POST(request: Request) {
   try {
-    const { message, history = [] } = await request.json();
-
-    if (!message) {
-      return NextResponse.json({ error: "Message is required" }, { status: 400 });
+    const body = await request.json().catch(() => null);
+    const parsed = chatRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Invalid chat request", issues: validationIssues(parsed.error) },
+        { status: 400 }
+      );
     }
+    const { message, history } = parsed.data;
 
     // If no API key, fall back to rule-based
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({
         role: "assistant",
         content: getFallbackResponse(message),
-        intent: "general",
+        intent: getFallbackIntent(message),
         timestamp: new Date().toISOString(),
         fallback: true,
       });
     }
 
     const messages: Anthropic.MessageParam[] = [
-      ...history.map((h: { role: string; content: string }) => ({
-        role: h.role as "user" | "assistant",
+      ...history.map((h) => ({
+        role: h.role,
         content: h.content,
       })),
       { role: "user", content: message },
@@ -330,11 +338,21 @@ export async function POST(request: Request) {
 
 function getFallbackResponse(message: string): string {
   const lower = message.toLowerCase();
-  if (lower.includes("sold") || lower.includes("sale")) return "Recorded your sale! Keep tracking transactions to build a stronger credit profile.";
-  if (lower.includes("paid") || lower.includes("expense")) return "Expense recorded. I'll track this against your budget.";
+  if (lower.includes("sold") || lower.includes("sale")) return "Demo sale recognized. This preview is not saved; connect a persistent ledger before using it for real bookkeeping.";
+  if (lower.includes("paid") || lower.includes("expense")) return "Demo expense recognized. This preview is not saved or applied to a real budget.";
   if (lower.includes("score") || lower.includes("credit")) return "Your Ndalama Score is 720 (Tier B — Good). Top factors: transaction regularity, KYC verified, Chilimba participation.";
   if (lower.includes("borrow") || lower.includes("loan")) return "With score 720 (Tier B), you qualify for up to K5,000 at 8-12% annual. Visit the Lending Marketplace to see current offers.";
   if (lower.includes("forecast")) return "30-day forecast: Revenue K9,200 (+8%), Expenses K3,800, Net K5,400. Restock charcoal by Day 8.";
   if (lower.includes("summary") || lower.includes("how much")) return "March summary: Revenue K8,450 · Expenses K3,200 · Net Profit K5,250 (62% margin). Charcoal sales are your top earner at K4,800.";
   return "I can help you track sales, expenses, check your credit score, and find loan options. What would you like to do?";
+}
+
+function getFallbackIntent(message: string): string {
+  const lower = message.toLowerCase();
+  if (lower.includes("sold") || lower.includes("sale") || lower.includes("paid") || lower.includes("expense")) return "financial_record";
+  if (lower.includes("score") || lower.includes("credit")) return "credit_inquiry";
+  if (lower.includes("borrow") || lower.includes("loan")) return "loan_inquiry";
+  if (lower.includes("forecast")) return "forecast";
+  if (lower.includes("summary") || lower.includes("how much")) return "financial_summary";
+  return "general";
 }
